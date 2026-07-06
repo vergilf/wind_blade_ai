@@ -1,168 +1,195 @@
-# 🌬 VLM Wind Turbine Blade Damage Detection System
+# VLM Wind Turbine Blade Damage Detection System
 
-A Vision-Language Model (VLM) based industrial inspection system for automated wind turbine blade defect detection and reasoning.
+A local Vision-Language Model (VLM) inspection project for wind turbine blade defect detection, structured reasoning, and JSON result generation.
 
-This project implements a VLM-based inference and reasoning pipeline powered by a **locally deployed VLM (LM Studio)**, performing prompt-driven visual understanding instead of traditional classification.
-
----
-
-## 📌 1. Project Overview
-
-This system applies Vision-Language Models (VLMs) to industrial inspection tasks, specifically wind turbine blade damage analysis.
-
-It simulates a real-world AI inspection workflow:
-
-- Input: Wind turbine blade images
-- Processing: Prompt-driven multimodal reasoning via VLM
-- Output: Structured JSON diagnostic results
-
-Unlike traditional computer vision classification models, this project focuses on **visual reasoning and structured generation**.
+The project uses an OpenAI-compatible local VLM API provided by LM Studio. It focuses on prompt-driven visual reasoning instead of training a traditional image classifier.
 
 ---
 
-## ⚙️ 2. Key Features
+## 1. Project Overview
 
-- Vision-Language Model (VLM) based inference (local deployment via LM Studio)
-- Batch image processing pipeline
-- Structured JSON output generation
-- Inference latency tracking per image
-- Prompt engineering experiments (v1 → v3)
-- Automatic result persistence
-- Reproducible batch inference system
+This system analyzes wind turbine blade images and asks a local VLM to identify visible defects based on inspection rules.
+
+Main workflow:
+
+1. Load blade images from `data/examples/`
+2. Encode each image as base64
+3. Send the image and inspection prompt to the LM Studio API
+4. Parse the model response as JSON
+5. Save per-image results to `outputs/`
+6. Generate a batch-level `summary_report.json`
+
+The latest batch prompt is defined in `src/prompts/blade_prompt_v3.py`.
 
 ---
 
-## ⚠️ 3. Runtime Dependency (IMPORTANT)
+## 2. Features
 
-This project requires a locally running Vision-Language Model server.
+- Local VLM inference through LM Studio
+- OpenAI-compatible chat completions API
+- Batch processing for blade inspection images
+- Streamlit single-image demo UI
+- Prompt versions for iterative prompt engineering
+- Structured JSON output
+- Per-image inference time tracking
+- Batch summary report generation
+- Automatic skipping of already processed images
 
-It does NOT include model weights or cloud inference.
+---
 
-### Required Setup:
+## 3. Runtime Dependency
 
-1. Install LM Studio:
-   https://lmstudio.ai/
+This repository does not include model weights and does not use cloud inference by default.
 
-2. Download a Vision-Language Model:
-   - Example: Qwen2.5-VL-3B-Instruct
+You need a locally running LM Studio server before using the batch script or Streamlit app.
 
-3. Enable OpenAI-compatible API Server in LM Studio
+Required setup:
 
-4. Start server at:
+1. Install [LM Studio](https://lmstudio.ai/)
+2. Download and load a vision-language model, such as Qwen2.5-VL or Qwen3-VL
+3. Enable the OpenAI-compatible API server in LM Studio
+4. Make sure this endpoint is available:
 
+```text
 http://localhost:1234/v1/chat/completions
+```
 
-If LM Studio is not running, the project will not work.
-
----
-
-## 🏗 4. System Architecture
-
-Input Images → Batch Inference → Base64 Encoding → LM Studio VLM API → Prompt Reasoning → JSON Parser → Output Files
-
-### Pipeline Steps:
-
-1. Load images from `data/examples/`
-2. Encode images to base64 format
-3. Send request to LM Studio VLM API
-4. Apply prompt-based visual reasoning
-5. Parse model response into structured JSON
-6. Save per-image results
-7. Generate batch summary report
+The batch script uses `"model": "local-model"`, while `app.py` currently uses `"model": "qwen3-vl-8b-instruct-mlx"`. Adjust these values in the code if your LM Studio model name is different.
 
 ---
 
-## 🧪 5. Example Output
+## 4. Project Structure
 
-Each image produces a structured prediction:
+```text
+.
+├── app.py                         # Streamlit single-image demo
+├── configs/
+│   └── model_config.py            # Experimental model config
+├── data/
+│   └── examples/                  # Example blade images
+├── experiments/
+│   └── prompt_experiment_log.md   # Prompt experiment notes
+├── outputs/                       # Runtime outputs, ignored by git
+├── src/
+│   ├── api/                       # API test scripts
+│   ├── inference/
+│   │   ├── batch_inference.py     # Main batch inference entry
+│   │   └── inference.py           # Experimental direct local HF inference
+│   └── prompts/                   # Prompt versions
+└── README.md
+```
+
+---
+
+## 5. Installation
+
+Create and activate a Python environment, then install the packages used by the current scripts:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install requests streamlit pillow torch transformers
+```
+
+If you only run the LM Studio batch pipeline, the core dependency is `requests`. `streamlit` and `pillow` are required by `app.py`; `torch` and `transformers` are used by the experimental direct local inference script.
+
+---
+
+## 6. How to Run
+
+### Test the LM Studio API
+
+```bash
+python src/api/api_test.py
+```
+
+### Run batch inference
+
+```bash
+python src/inference/batch_inference.py
+```
+
+The script reads all `.jpg`, `.jpeg`, and `.png` files from `data/examples/` and writes JSON results into `outputs/`.
+
+### Run the Streamlit demo
+
+```bash
+streamlit run app.py
+```
+
+Upload a blade image in the browser UI and click `Run Inference`.
+
+---
+
+## 7. Output Format
+
+Each processed image is saved as:
+
+```text
+outputs/<image_filename>.json
+```
+
+For example:
+
+```text
+outputs/blade01.jpg.json
+outputs/叶片雷击.jpg.json
+outputs/summary_report.json
+```
+
+Example per-image output:
 
 ```json
 {
   "image_name": "blade01.jpg",
-  "inference_time_sec": 1.12,
+  "timestamp": "2026-07-03T10:00:00.000000",
+  "inference_time_sec": 1.1234,
   "prediction": {
-    "damage_type": "leading_edge_crack",
-    "severity": "medium",
-    "confidence": 0.86
+    "defect_detected": true,
+    "region": "叶片前缘",
+    "defect_type": "开裂",
+    "severity": "中度损伤",
+    "confidence": 0.86,
+    "description": "观察到连续裂纹，因此判断为开裂。"
   }
 }
+```
+
+Batch summary output:
+
+```json
+{
+  "total_images": 12,
+  "total_time_sec": 18.4321,
+  "avg_time_per_image_sec": 1.536,
+  "timestamp": "2026-07-03T10:05:00.000000",
+  "summary": []
+}
+```
 
 ---
 
-## 🚀 6. How to Run
+## 8. Notes and Limitations
 
-## ⚠️ Runtime Dependency
-
-This project requires a locally running Vision-Language Model served via LM Studio.
-
-It does NOT include model weights or cloud inference access.
-
-Without LM Studio running, inference scripts will fail.
-
-### 1. Install dependencies
-pip install -r requirements.txt
-
-### 2. Start LM Studio
-Enable API server
-Ensure endpoint:
-http://localhost:1234/v1/chat/completions
-
-### 3. Run batch inference
-python src/inference/batch_inference.py
+- The model must return valid JSON. If the model adds Markdown or extra text, `batch_inference.py` may fail to parse that image.
+- Already processed images are skipped when their output JSON file exists.
+- `outputs/` is treated as runtime data and is ignored by git.
+- `src/inference/inference.py` uses a hard-coded local Hugging Face snapshot path and is experimental.
+- The system is a VLM reasoning prototype, not a validated industrial safety system.
 
 ---
 
-## 🧰 7. Tech Stack
+## 9. Future Improvements
 
-- Python 3.10+
-- Vision-Language Model (LM Studio local API)
-- OpenAI-compatible API format
-- Prompt engineering framework
-- Batch inference pipeline
-- JSON structured output system
-
----
-
-## 📊 8. Output Structure
-
-outputs/
-├── blade01.json
-├── blade02.json
-├── summary_report.json
-
-Each run generates:
-- Per-image prediction
-- Inference time tracking
-- Batch-level summary statistics
+- Add `requirements.txt`
+- Improve JSON extraction and error recovery
+- Add evaluation metrics such as precision, recall, and F1
+- Add model and prompt comparison reports
+- Add visualization for batch results
+- Move model names and API URL into a unified config file
 
 ---
 
-## 🔬 9. Design Philosophy
+## Author
 
-This project is designed as a lightweight but extensible AI inspection system, focusing on:
-
-- Prompt-driven visual reasoning instead of fixed classification
-- Modular inference pipeline
-- Structured outputs for downstream analysis
-- Easy extensibility for future model upgrades
-
----
-
-## 🧭 10. Future Improvements
-
-- Add evaluation metrics (precision / recall / F1)
-- Introduce model comparison framework
-- Build web visualization dashboard
-- Integrate active learning loop
-- Improve prompt engineering strategy (v2 → v3 → production)
-
----
-
-## 👤 Author
-
-Built as a personal AI engineering project focusing on:
-
-- Multimodal AI systems
-- Industrial inspection applications
-- Prompt engineering for Vision-Language Models
-- Local deployment AI systems (LM Studio based)
+Built as a personal AI engineering project focused on multimodal AI, industrial inspection, prompt engineering, and local VLM deployment.
