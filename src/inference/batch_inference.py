@@ -20,6 +20,10 @@ os.makedirs(output_dir, exist_ok=True)
 # ========================
 url = "http://localhost:1234/v1/chat/completions"
 
+def infer_image(image_path: str) -> dict:
+    with open(image_path, "rb") as f:
+        base64_image = base64.b64encode(f.read()).decode("utf-8")
+    pass
 # ========================
 # 3. 收集图片
 # ========================
